@@ -19,6 +19,13 @@ const HEIGHT = 600;
  *  20pts - Large Asteroid
  *  50pts - Medium Asteroid
  * 100pts - Small Asteroid
+ * 
+ * 
+ * Ok, I had a liiiittle sideways idea, 
+ * now the game gets exponential harder if all asteroids are destroyed
+ * 
+ * I'm going stop here, I learned the phaser 3 basics
+ * thats what I wanted to learn, see you at the next game
  */
 
 class Bullet extends Phaser.Physics.Arcade.Sprite {
