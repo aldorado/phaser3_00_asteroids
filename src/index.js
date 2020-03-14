@@ -66,17 +66,17 @@ class Asteroid extends Phaser.Physics.Arcade.Sprite {
         super (scene, x, y, 'asteroid_small');
         this.size = 'small';
         this.credits = 100;
-        this.asteroidVelocity = Phaser.Math.RND.between(50, 200);
     }
     scene.add.existing(this);
     scene.physics.add.existing(this);
     console.log('Asteroid created', x, y);
-    this.move();
+    // this.move();
   }
   
-  move() {
+  initialize(level) {
+    this.credits *= level;
     const rotation = Phaser.Math.RND.between(0, 359);
-    const velocity = this.asteroidVelocity
+    const velocity = Phaser.Math.RND.between(50*level, 200*level);
     this.setRotation(rotation);
     let velocityVector = this.scene.physics.velocityFromRotation(rotation, velocity);
     this.setVelocity(velocityVector.x, velocityVector.y);
@@ -91,7 +91,9 @@ class Asteroids extends Phaser.Physics.Arcade.Group {
   constructor (scene) {
     super(scene.physics.world, scene);
     this.classType = Asteroid;
-    this.maxSize = 14;
+    this.baseSize = 4;
+    this.maxSize = 4;
+    this.level = 1;
 
     this.initializeAsteroids()
   }
@@ -101,9 +103,18 @@ class Asteroids extends Phaser.Physics.Arcade.Group {
       const x = Phaser.Math.RND.between(0, HEIGHT);
       const y = Phaser.Math.RND.between(0, WIDTH);
       const asteroid = this.create(x, y);
-      asteroid.move();
+      asteroid.initialize(this.level);
     }
   }
+
+  checkAsteroids() {
+    if (this.children.size === 0) {
+      this.level++;
+      this.maxSize = this.baseSize * this.level;
+      this.initializeAsteroids();
+    }
+  }
+
 }
 
 class AsteroidsGame extends Phaser.Scene {
@@ -193,6 +204,7 @@ class AsteroidsGame extends Phaser.Scene {
     this.addCredits(asteroid.getCredits());
     console.log('Got Credits', asteroid.getCredits(), this.score);
     asteroid.destroy();
+    this.asteroids.checkAsteroids();
   }
   
   asteroidCollideWithRocket(rocket, asteroid) {
