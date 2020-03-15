@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import rocketImg from './assets/asteroids_rocket.png';
 import asteroidSImg from './assets/asteroids_asteroid_small.png';
+import asteroidMImg from './assets/asteroids_asteroid_medium.png';
+import asteroidLImg from './assets/asteroids_asteroid_large.png';
 import bulletImg from './assets/asteroids_bullet.png';
 
 const WIDTH = 800;
@@ -68,6 +70,16 @@ class Bullets extends Phaser.Physics.Arcade.Group {
 class Asteroid extends Phaser.Physics.Arcade.Sprite {
   constructor (scene, x, y, size) {
     switch (size) {
+      case 'large':
+        super (scene, x, y, 'asteroid_large');
+        this.credits = 20;
+        this.size = size;
+        break;
+      case 'medium':
+        super (scene, x, y, 'asteroid_medium');
+        this.credits = 50;
+        this.size = size;
+        break;
       case 'small':
       default:
         super (scene, x, y, 'asteroid_small');
@@ -77,13 +89,11 @@ class Asteroid extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     console.log('Asteroid created', x, y);
-    // this.move();
   }
   
-  initialize(level) {
-    this.credits *= level;
+  initialize() {
     const rotation = Phaser.Math.RND.between(0, 359);
-    const velocity = Phaser.Math.RND.between(50*level, 200*level);
+    const velocity = Phaser.Math.RND.between(50, 200);
     this.setRotation(rotation);
     let velocityVector = this.scene.physics.velocityFromRotation(rotation, velocity);
     this.setVelocity(velocityVector.x, velocityVector.y);
@@ -97,27 +107,46 @@ class Asteroid extends Phaser.Physics.Arcade.Sprite {
 class Asteroids extends Phaser.Physics.Arcade.Group {
   constructor (scene) {
     super(scene.physics.world, scene);
+    this.scene = scene;
     this.classType = Asteroid;
     this.baseSize = 4;
-    this.maxSize = 4;
-    this.level = 1;
 
     this.initializeAsteroids()
   }
 
   initializeAsteroids() {
-    for (let asteroidCnt = 0; asteroidCnt < this.maxSize; asteroidCnt++) {
+    for (let asteroidCnt = 0; asteroidCnt < this.baseSize; asteroidCnt++) {
       const x = Phaser.Math.RND.between(0, HEIGHT);
       const y = Phaser.Math.RND.between(0, WIDTH);
-      const asteroid = this.create(x, y);
-      asteroid.initialize(this.level);
+      const asteroid = new Asteroid(this.scene, x, y, 'large')
+      this.add(asteroid);
+      asteroid.initialize();
+    }
+  }
+  
+  createFragments(size, x, y) {
+    let newSize;
+    switch (size) {
+      case 'large':
+        newSize = 'medium';
+        break;
+      case 'medium':
+        newSize = 'small';
+        break;
+    }
+
+    console.log('[createFragments]', {size, x, y, newSize});
+    if (newSize) {
+      for (let asteroidCnt = 0; asteroidCnt < this.baseSize; asteroidCnt++) {
+        const asteroid = new Asteroid(this.scene, x, y, newSize)
+        this.add(asteroid);
+        asteroid.initialize();
+      }
     }
   }
 
   checkAsteroids() {
     if (this.children.size === 0) {
-      this.level++;
-      this.maxSize = this.baseSize * this.level;
       this.initializeAsteroids();
     }
   }
@@ -144,6 +173,8 @@ class AsteroidsGame extends Phaser.Scene {
   preload() {
     this.load.image('rocket', rocketImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_small', asteroidSImg, { frameWidth: 16, frameHeight: 16 });
+    this.load.image('asteroid_medium', asteroidMImg, { frameWidth: 32, frameHeight: 32 });
+    this.load.image('asteroid_large', asteroidLImg, { frameWidth: 64, frameHeight: 64 });
     this.load.image('bullet', bulletImg, { frameWidth: 2, frameHeight: 2 })
   }
 
@@ -210,6 +241,8 @@ class AsteroidsGame extends Phaser.Scene {
     bullet.destroy();
     this.addCredits(asteroid.getCredits());
     console.log('Got Credits', asteroid.getCredits(), this.score);
+    console.log('Asteroid Size', asteroid.size);
+    this.asteroids.createFragments(asteroid.size, asteroid.x, asteroid.y);
     asteroid.destroy();
     this.asteroids.checkAsteroids();
   }
