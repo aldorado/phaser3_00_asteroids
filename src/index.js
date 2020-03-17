@@ -34,8 +34,67 @@ import { WIDTH, HEIGHT } from './config';
 
 // ######### SPRITES #############
 
+class Rocket extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y, controls, bullets) {
+    super(scene, x, y, 'rocket');
+    this.scene = scene;
+    this.scene.add.existing(this);
+    this.scene.physics.add.existing(this);
+    this.bullets = bullets;
+    
+    this.up = controls.up;
+    this.left = controls.left;
+    this.right = controls.right;
+    this.down = controls.down;
+    this.shoot = controls.shoot;
+    
+    this.angle = -90;
+    this.setDrag(0.99);
+    this.setDamping(true);
+    this.setMaxVelocity(200);
+
+    this.scene.anims.create({
+      key: 'thrust',
+      frameRate: 12,
+      repeat: 0,
+      frames: this.scene.anims.generateFrameNumbers('rocket', {
+        frames: [0,1,2]
+      })
+    });
+
+  }
+  
+  update() {
+    if (this.up.isDown) {
+      this.scene.physics.velocityFromRotation(this.rotation, 200, this.body.acceleration);
+      this.play('thrust');
+    } else if (this.down.isDown) {
+      this.scene.physics.velocityFromRotation(this.rotation, -200, this.body.acceleration);
+      this.play('thrust');
+    } else {
+      this.setAcceleration(0);
+    }
+  
+    if (this.left.isDown) {
+      this.setAngularVelocity(-300);
+    }
+    else if (this.right.isDown) {
+      this.setAngularVelocity(300);
+    }
+    else {
+      this.setAngularVelocity(0);
+    }
+
+    if (this.shoot.isDown && (this.lastShot !== this.shoot.timeDown)) {
+      this.bullets.fireBullet(this);
+      this.lastShot = this.shoot.timeDown;
+    }
+  }
+
+}
+
 class Bullet extends Phaser.Physics.Arcade.Sprite {
-  constructor (scene, x, y, shooter) {
+  constructor (scene, x, y) {
     super(scene, x, y, 'bullet');
   }
 
@@ -168,15 +227,13 @@ class SibwaxSplash extends Phaser.Scene {
 
   preload() {
     this.load.spritesheet('logo', sibwaxLogoAnim, {
-      frameHeight: 9,
-      frameWidth: 65
+      frameHeight: 45,
+      frameWidth: 325
     });
   }
 
   create() {
-
     let logoSprite = this.add.sprite(WIDTH/2, HEIGHT/2, 'logo');
-    logoSprite.setScale(4);
     this.anims.create({
       key: 'logo_animation',
       frameRate: 12,
@@ -216,7 +273,7 @@ class AsteroidsGame extends Phaser.Scene {
   }
   preload() {
     this.load.image('background_stars', starsBg);
-    this.load.image('rocket', rocketImg, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('rocket', rocketImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_small', asteroidSImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_medium', asteroidMImg, { frameWidth: 32, frameHeight: 32 });
     this.load.image('asteroid_large', asteroidLImg, { frameWidth: 64, frameHeight: 64 });
@@ -230,19 +287,16 @@ class AsteroidsGame extends Phaser.Scene {
     this.bg = this.add.tileSprite(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 'background_stars');
     this.bg.alpha = 0.75;
 
-    this.up = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.left = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.down = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.right = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-    this.shoot = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    
-    this.rocket = this.physics.add.sprite(WIDTH/2, HEIGHT/2, 'rocket');
-    this.rocket.angle = -90;
-    this.rocket.setMaxVelocity(200);
-    this.rocket.setDrag(0.99);
-    this.rocket.setDamping(true);
-    
     this.bullets = new Bullets(this);
+    const controls = {
+      up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      shoot: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+    }
+    this.rocket = new Rocket(this, WIDTH/2, HEIGHT/2, controls, this.bullets)
+    
     this.asteroids = new Asteroids(this);
     this.rocketHit = false;
 
@@ -251,29 +305,8 @@ class AsteroidsGame extends Phaser.Scene {
   
   update() {
 
-    if (this.up.isDown) {
-      this.physics.velocityFromRotation(this.rocket.rotation, 200, this.rocket.body.acceleration);
-    } else if (this.down.isDown) {
-      this.physics.velocityFromRotation(this.rocket.rotation, -200, this.rocket.body.acceleration);
-    } else {
-      this.rocket.setAcceleration(0);
-    }
-  
-    if (this.left.isDown) {
-      this.rocket.setAngularVelocity(-300);
-    }
-    else if (this.right.isDown) {
-      this.rocket.setAngularVelocity(300);
-    }
-    else {
-      this.rocket.setAngularVelocity(0);
-    }
-
-    if (this.shoot.isDown && (this.lastShot !== this.shoot.timeDown)) {
-      this.bullets.fireBullet(this.rocket);
-      this.lastShot = this.shoot.timeDown;
-    }
-  
+    this.rocket.update();
+    
     this.physics.add.collider(this.bullets, this.asteroids, this.bulletCollidedWithAsteroid, null, this);
     if (!this.rocketHit) {
       this.rocketHit = true;
