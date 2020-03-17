@@ -4,9 +4,10 @@ import asteroidSImg from './assets/asteroids_asteroid_small.png';
 import asteroidMImg from './assets/asteroids_asteroid_medium.png';
 import asteroidLImg from './assets/asteroids_asteroid_large.png';
 import bulletImg from './assets/asteroids_bullet.png';
+import starsBg from './assets/asteroids_stars_tiles_big.png';
+import sibwaxLogoAnim from './assets/sibwax_logo_animation.png';
 
-const WIDTH = 800;
-const HEIGHT = 600;
+import { WIDTH, HEIGHT } from './config';
 
 /**
  * # Asteroids
@@ -30,6 +31,9 @@ const HEIGHT = 600;
  * thats what I wanted to learn, see you at the next game
  */
 
+
+// ######### SPRITES #############
+
 class Bullet extends Phaser.Physics.Arcade.Sprite {
   constructor (scene, x, y, shooter) {
     super(scene, x, y, 'bullet');
@@ -49,22 +53,6 @@ class Bullet extends Phaser.Physics.Arcade.Sprite {
       this.destroy();
     }
   }
-}
-
-class Bullets extends Phaser.Physics.Arcade.Group {
-  constructor (scene) {
-    super(scene.physics.world, scene)
-    this.classType = Bullet;
-    this.maxSize = 10;
-  }
-
-  fireBullet (shooter) {
-    let bullet = this.create(shooter.x, shooter.y);
-    if (bullet) {
-      bullet.fire(shooter);
-    }
-  }
-
 }
 
 class Asteroid extends Phaser.Physics.Arcade.Sprite {
@@ -102,6 +90,24 @@ class Asteroid extends Phaser.Physics.Arcade.Sprite {
   getCredits() {
     return this.credits;
   }
+}
+
+// ######### GROUPS #############
+
+class Bullets extends Phaser.Physics.Arcade.Group {
+  constructor (scene) {
+    super(scene.physics.world, scene)
+    this.classType = Bullet;
+    this.maxSize = 10;
+  }
+
+  fireBullet (shooter) {
+    let bullet = this.create(shooter.x, shooter.y);
+    if (bullet) {
+      bullet.fire(shooter);
+    }
+  }
+
 }
 
 class Asteroids extends Phaser.Physics.Arcade.Group {
@@ -153,9 +159,47 @@ class Asteroids extends Phaser.Physics.Arcade.Group {
 
 }
 
+// ######### SCENES #############
+
+class SibwaxSplash extends Phaser.Scene {
+  constructor() {
+    super({ key: 'SibwaxSplash' });
+  }
+
+  preload() {
+    this.load.spritesheet('logo', sibwaxLogoAnim, {
+      frameHeight: 9,
+      frameWidth: 65
+    });
+  }
+
+  create() {
+
+    let logoSprite = this.add.sprite(WIDTH/2, HEIGHT/2, 'logo');
+    logoSprite.setScale(4);
+    this.anims.create({
+      key: 'logo_animation',
+      frameRate: 12,
+      repeat: 0,
+      frames: this.anims.generateFrameNumbers('logo', {
+        frames: [0,0,0,0,0,0,0,1,2,3,4,5,6,7,0]
+      })
+    });
+
+    logoSprite.play('logo_animation');
+
+    this.input.on('pointerup', () => {
+      this.scene.start('AsteroidsGame');
+    })
+  }
+}
+
 class AsteroidsGame extends Phaser.Scene {
   constructor() {
     super({ key: 'AsteroidsGame' });
+
+    this.bg;
+
     this.up;
     this.left;
     this.right;
@@ -171,6 +215,7 @@ class AsteroidsGame extends Phaser.Scene {
     this.scoreText;
   }
   preload() {
+    this.load.image('background_stars', starsBg);
     this.load.image('rocket', rocketImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_small', asteroidSImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_medium', asteroidMImg, { frameWidth: 32, frameHeight: 32 });
@@ -181,6 +226,9 @@ class AsteroidsGame extends Phaser.Scene {
   create() {
     this.score = this.game.registry.get('score') || 0;
     this.game.registry.set('score', this.score);
+
+    this.bg = this.add.tileSprite(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 'background_stars');
+    this.bg.alpha = 0.75;
 
     this.up = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.left = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
@@ -202,6 +250,7 @@ class AsteroidsGame extends Phaser.Scene {
   }
   
   update() {
+
     if (this.up.isDown) {
       this.physics.velocityFromRotation(this.rocket.rotation, 200, this.rocket.body.acceleration);
     } else if (this.down.isDown) {
@@ -283,6 +332,8 @@ class AsteroidsScoreboard extends Phaser.Scene {
   }
 }
 
+// ######### MAIN #############
+
 const config = {
   type: Phaser.AUTO,
   parent: "phaser-example",
@@ -298,7 +349,7 @@ const config = {
       }
     }
   },
-  scene: [AsteroidsGame, AsteroidsScoreboard]
+  scene: [SibwaxSplash, AsteroidsGame, AsteroidsScoreboard]
 };
 
 const game = new Phaser.Game(config);
