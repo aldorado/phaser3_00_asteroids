@@ -1,0 +1,28 @@
+{
+    "resources": [
+        "./assets/sfx.mp3",
+        "./assets/sfx.ogg"
+    ],
+    "spritemap": {
+        "bullet": {
+            "start": 0.1,
+            "end": 0.9,
+            "loop": false
+        },
+        "explosion": {
+            "start": 1.5,
+            "end": 2.9,
+            "loop": false
+        },
+        "load": {
+            "start": 3.3,
+            "end": 3.8,
+            "loop": false
+        },
+        "thrust": {
+            "start": 4.43,
+            "end": 5.35,
+            "loop": true
+        }
+    }
+}

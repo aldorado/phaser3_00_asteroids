@@ -7,6 +7,9 @@ import bulletImg from './assets/asteroids_bullet.png';
 import starsBg from './assets/asteroids_stars_tiles_big.png';
 import sibwaxLogoAnim from './assets/sibwax_logo_animation.png';
 
+import sfxMp3 from './assets/sfx.mp3';
+import sfxOgg from './assets/sfx.ogg';
+
 import { WIDTH, HEIGHT } from './config';
 
 /**
@@ -68,9 +71,17 @@ class Rocket extends Phaser.Physics.Arcade.Sprite {
     if (this.up.isDown) {
       this.scene.physics.velocityFromRotation(this.rotation, 200, this.body.acceleration);
       this.play('thrust');
+      this.scene.sound.playAudioSprite('sfx','thrust', {
+        volume: .2,
+        detune: -200
+      });
     } else if (this.down.isDown) {
       this.scene.physics.velocityFromRotation(this.rotation, -200, this.body.acceleration);
       this.play('thrust');
+      this.scene.sound.playAudioSprite('sfx','thrust', {
+        volume: .15,
+        detune: 200
+      });
     } else {
       this.setAcceleration(0);
     }
@@ -88,6 +99,7 @@ class Rocket extends Phaser.Physics.Arcade.Sprite {
     if (this.shoot.isDown && (this.lastShot !== this.shoot.timeDown)) {
       this.bullets.fireBullet(this);
       this.lastShot = this.shoot.timeDown;
+      this.scene.sound.playAudioSprite('sfx', 'bullet');
     }
   }
 
@@ -135,7 +147,6 @@ class Asteroid extends Phaser.Physics.Arcade.Sprite {
     }
     scene.add.existing(this);
     scene.physics.add.existing(this);
-    console.log('Asteroid created', x, y);
   }
   
   initialize() {
@@ -200,7 +211,6 @@ class Asteroids extends Phaser.Physics.Arcade.Group {
         break;
     }
 
-    console.log('[createFragments]', {size, x, y, newSize});
     if (newSize) {
       for (let asteroidCnt = 0; asteroidCnt < this.baseSize; asteroidCnt++) {
         const asteroid = new Asteroid(this.scene, x, y, newSize)
@@ -245,9 +255,17 @@ class SibwaxSplash extends Phaser.Scene {
 
     logoSprite.play('logo_animation');
 
-    this.input.on('pointerup', () => {
+    const loadingText = this.add.text(WIDTH/2, HEIGHT * .75, 'PRESS SPACE TO START', { font: '24px Courier', fill: '#ff00ff' });
+    const start = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    start.on('down', () => {
       this.scene.start('AsteroidsGame');
     })
+    
+    const controlsLabel = this.add.text(WIDTH/2, HEIGHT * .9 - 24, 'CONTROLS', { font: '12px Courier', fill: '#00ffff' });
+    const controlsText = this.add.text(WIDTH/2, HEIGHT * .9, 'WASD + SPACE', { font: '24px Courier', fill: '#ff00ff' });
+    controlsLabel.setOrigin(0.5);
+    controlsText.setOrigin(0.5, 0.5);
+    loadingText.setOrigin(0.5, 0.5);
   }
 }
 
@@ -267,11 +285,42 @@ class AsteroidsGame extends Phaser.Scene {
     this.bullets;
     this.lastShot;
 
-    this.rockets = 3;
-    this.score = 0;
+    this.rockets;
+    this.score;
     this.scoreText;
   }
   preload() {
+    this.load.audioSprite('sfx', {
+      resources: [
+        sfxOgg,
+        sfxMp3
+      ],
+      "spritemap": {
+        "bullet": {
+            "start": 0.1,
+            "end": 0.9,
+            "loop": false
+        },
+        "explosion": {
+            "start": 1.5,
+            "end": 2.9,
+            "loop": false
+        },
+        "load": {
+            "start": 3.3,
+            "end": 3.8,
+            "loop": false
+        },
+        "thrust": {
+          "start": 4.45,
+          "end": 4.9,
+          "loop": false
+        }
+      }
+    }, [
+      sfxMp3,
+      sfxOgg
+    ])
     this.load.image('background_stars', starsBg);
     this.load.spritesheet('rocket', rocketImg, { frameWidth: 16, frameHeight: 16 });
     this.load.image('asteroid_small', asteroidSImg, { frameWidth: 16, frameHeight: 16 });
@@ -281,9 +330,8 @@ class AsteroidsGame extends Phaser.Scene {
   }
 
   create() {
-    this.score = this.game.registry.get('score') || 0;
-    this.game.registry.set('score', this.score);
-
+    this.score = 0;
+    this.rockets = 3;
     this.bg = this.add.tileSprite(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 'background_stars');
     this.bg.alpha = 0.75;
 
@@ -301,6 +349,7 @@ class AsteroidsGame extends Phaser.Scene {
     this.rocketHit = false;
 
     this.scoreText = this.add.text(10, 10, this.score, { font: '16px Courier', fill: '#00ffff' })
+    this.rocketsText = this.add.text(WIDTH - 20, 10, this.rockets, { font: '16px Courier', fill: '#00ffff' })
   }
   
   update() {
@@ -312,8 +361,6 @@ class AsteroidsGame extends Phaser.Scene {
       this.rocketHit = true;
       this.physics.add.collider(this.asteroids, this.rocket, this.asteroidCollideWithRocket, null, this);
     }
-
-    this.scoreText.setText(this.score);
     
     this.physics.world.wrap(this.rocket, 16);
     this.physics.world.wrap(this.asteroids, 16);
@@ -322,15 +369,27 @@ class AsteroidsGame extends Phaser.Scene {
   bulletCollidedWithAsteroid(bullet, asteroid) {
     bullet.destroy();
     this.addCredits(asteroid.getCredits());
-    console.log('Got Credits', asteroid.getCredits(), this.score);
-    console.log('Asteroid Size', asteroid.size);
+    this.scoreText.setText(this.score);
     this.asteroids.createFragments(asteroid.size, asteroid.x, asteroid.y);
+    this.sound.playAudioSprite('sfx', 'explosion');
     asteroid.destroy();
     this.asteroids.checkAsteroids();
   }
   
   asteroidCollideWithRocket(rocket, asteroid) {
-    this.scene.start('AsteroidsScoreboard');
+    console.log('[asteroidCollideWithRocket]', {
+      rockets: this.rockets,
+      score: this.score
+    });
+    rocket.active = false;
+    rocket.setX(WIDTH/2);
+    rocket.setY(HEIGHT/2);
+    this.sound.playAudioSprite('sfx', 'load');
+    this.rockets -= 1;
+    if (this.rockets === 0) {
+      this.scene.start('AsteroidsScoreboard', { score: this.score });
+    }
+    this.rocketsText.setText(this.rockets);
   }
   
   addCredits(credits) {
@@ -344,19 +403,25 @@ class AsteroidsScoreboard extends Phaser.Scene {
   constructor() {
     super({ key: 'AsteroidsScoreboard' });
   }
+
+  init(data) {
+    this.score = data.score;
+  }
   
   create() {
-    const { score } = this.registry.getAll();
-    console.log('REGISTRY', score);
     const text = this.add.text(WIDTH/2, HEIGHT * 0.4, 'SCORE', { font: '36px Courier', fill: '#ff00ff' });
     text.setOrigin(0.5, 0.5);
     
-    this.score = this.add.text(WIDTH/2, HEIGHT * 0.5, score, { font: '52px Courier', fill: '#00ffff' });
-    this.score.setOrigin(0.5, 0.5);
+    this.scoreText = this.add.text(WIDTH/2, HEIGHT * 0.5, this.score, { font: '52px Courier', fill: '#00ffff' });
+    this.scoreText.setOrigin(0.5, 0.5);
     
-    const retry = this.add.text(WIDTH/2, HEIGHT * 0.75, 'CLICK TO TRY AGAIN', { font: '24px Courier', fill: '#ff00ff' });
+    const retry = this.add.text(WIDTH/2, HEIGHT * 0.75, 'PRESS SPACE TO TRY AGAIN', { font: '24px Courier', fill: '#ff00ff' });
     retry.setOrigin(0.5, 0.5);
     
+    const start = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    start.on('down', () => {
+      this.scene.start('AsteroidsGame');
+    })
     
     this.input.on('pointerdown', (pointer) => {
       this.registry.set('score', 0);
